@@ -4,57 +4,77 @@
 #include <time.h>
 #include "parallel.h"
 
-int main(void) {
-    printf("=== Parallel Test Runner Demo ===\n");
-    printf("Demonstrating OS-level parallel test execution abstraction\n\n");
-    
-    // Initialize random seed for test simulation
-    srand(time(NULL));
-    
-    // Create a test suite
+struct TestResult {
+    double seq_time;
+    double par_time;
+    double speedup;
+};
+
+struct TestResult run_test_suite(int num_tests) {
+    struct TestResult result;
     struct Test tests[QUEUEMAX];
     struct Test_Queue queue;
-    
-    // Set up 12 tests to demonstrate parallelization
-    queue.queue_length = 400;
-    
+
+    queue.queue_length = num_tests;
+
     for (int i = 0; i < queue.queue_length; i++) {
         tests[i].test_id = i + 1;
-        tests[i].result = ERROR; // Initialize to ERROR state
+        tests[i].result = ERROR;
     }
-    
-    printf("Created test suite with %d tests\n", queue.queue_length);
-    printf("Each test will be executed in parallel using optimal thread count\n\n");
-    
-    // This is the main API call - engineers only need to call this function
-    // All parallelization, thread management, and optimization is handled internally
-    struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC, &start);
-    
-    int result = run_test_in_parallel(tests, queue);
-    
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    
-    double execution_time = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
-    
-    printf("\n=== Final Results ===\n");
-    printf("Total execution time: %.2f seconds\n", execution_time);
-    printf("Overall result: %s\n", result == 0 ? "SUCCESS" : "FAILURE");
-    
-    // printf("\nIndividual test results:\n");
-    // for (int i = 0; i < queue.queue_length; i++) {
-    //     printf("Test %d: %s\n", 
-    //            tests[i].test_id,
-    //            tests[i].result == SUCCESS ? "PASS" :
-    //            tests[i].result == FAILURE ? "FAIL" : "ERROR");
-    // }
-    
-    // printf("\n=== Abstraction Benefits ===\n");
-    // printf("✓ Engineers don't need to understand threading\n");
-    // printf("✓ Optimal thread count calculated automatically\n");
-    // printf("✓ Load balancing handled internally\n");
-    // printf("✓ Cross-platform compatibility (Linux/Windows)\n");
-    // printf("✓ Simple API: just pass tests array and queue\n");
-    
+
+    // Run tests sequentially
+    struct timespec start_seq, end_seq;
+    clock_gettime(CLOCK_MONOTONIC, &start_seq);
+    run_test_sequentially(tests, queue);
+    clock_gettime(CLOCK_MONOTONIC, &end_seq);
+    result.seq_time = (end_seq.tv_sec - start_seq.tv_sec) +
+        (end_seq.tv_nsec - start_seq.tv_nsec) / 1e9;
+
+    // Run tests in parallel
+    struct timespec start_par, end_par;
+    clock_gettime(CLOCK_MONOTONIC, &start_par);
+    run_test_in_parallel(tests, queue);
+    clock_gettime(CLOCK_MONOTONIC, &end_par);
+    result.par_time = (end_par.tv_sec - start_par.tv_sec) +
+        (end_par.tv_nsec - start_par.tv_nsec) / 1e9;
+
+    result.speedup = result.seq_time / result.par_time;
+
+    return result;
+}
+
+int main(void) {
+    srand(time(NULL));
+
+    FILE *fp = fopen("results.csv", "w");
+    if (fp == NULL) {
+        fprintf(stderr, "Error opening file results.csv for writing.\n");
+        return 1;
+    }
+
+    int test_counts[] = { 10, 25, 50, 100, 500 };
+    int num_test_counts = sizeof(test_counts) / sizeof(int);
+
+    // Print CSV header to file
+    fprintf(fp, "Test run #");
+    for (int i = 0; i < num_test_counts; i++) {
+        fprintf(fp, ",%d sequential,%d parallel,%d speedup",
+            test_counts[i], test_counts[i], test_counts[i]);
+    }
+    fprintf(fp, "\n");
+
+    // Run the test suites 10 times
+    for (int run = 1; run <= 10; run++) {
+        fprintf(fp, "%d", run);
+        for (int i = 0; i < num_test_counts; i++) {
+            struct TestResult result = run_test_suite(test_counts[i]);
+            fprintf(fp, ",%.4f,%.4f,%.2f", result.seq_time, result.par_time, result.speedup);
+        }
+        fprintf(fp, "\n");
+    }
+
+    fclose(fp);
+    printf("Test results successfully written to results.csv\n");
+
     return 0;
 }
