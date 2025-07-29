@@ -1,0 +1,41 @@
+# C/C++
+#
+# Compiled object files
+*.o
+*.obj
+*.lo
+*.la
+*.slo
+
+# Precompiled headers
+*.gch
+*.pch
+
+# Compiled static libraries
+*.a
+*.lib
+
+# Compiled shared libraries
+*.so
+*.dll
+*.dylib
+
+# Executables
+*.out
+*.exe
+*.elf
+*.bin
+
+# Dependency files
+*.d
+
+# Build directory
+build/
+build/*
+
+# Editor-specific files
+.editorconfig
+.vscode/
+.idea/
+*.swp
+*~
